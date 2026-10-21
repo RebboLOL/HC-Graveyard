@@ -47,7 +47,7 @@ Every user brings their own client; the beacon never ships with one. Keep your s
 
 - The **very first time, restart WoW** and make sure *Graveyard Armory Data* is enabled in the AddOns list. After that a `/reload` is enough.
 - In the chat you see lines like *"142 fallen dressed in their Armory gear"* and *"Guild memory: Armory gear of 37 guildmates updated"*.
-- Your guild receives the data automatically while you are online. In Graveyard, *Settings → General* shows this guide and the download link too.
+- Your guild receives the data automatically while you are online. In Graveyard, *Settings → Armory* (or `/gy beacon`) shows this guide, the download link and how much Armory data is on your PC.
 
 ## Provide it for your guild
 
