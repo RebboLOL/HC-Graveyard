@@ -69,7 +69,10 @@ def enc36(n):
 
 
 def encode_gear(slots):
-    """slots: {1..19: (id, ench, sfx)} -> Graveyard-Gear-String (DB.lua)."""
+    """slots: {1..19: (id, ench, sfx)} -> Graveyard-Gear-String (DB.lua).
+
+    Feld 20 (ausgeblendeter Helm/Umhang) haengt with_flags an.
+    """
     parts = []
     for s in range(1, 20):
         it = slots.get(s)
@@ -84,6 +87,43 @@ def encode_gear(slots):
             enc += "." + ("-" if sfx < 0 else "") + enc36(abs(sfx))
         parts.append(enc)
     return ";".join(parts)
+
+
+# Helm/Umhang-Sichtbarkeit (Gear-Feld 20, G.GearHidden im Addon): /appearance
+# fuehrt nur sichtbare Teile. Ausgeruestet (laut /equipment), aber dort nicht
+# gelistet = ausgeblendet. Live bestaetigt am 21.10.2026 (tools/appearance_probe.py):
+# Char mit ausgeblendetem Helm und Umhang ohne HEAD und BACK, Vergleichs-Char vollstaendig.
+HIDE_SLOTS = (("HEAD", 1, "h"), ("BACK", 15, "c"))
+
+
+def hidden_flags(gear, appearance):
+    """Gear-String + Antwort von .../appearance -> "", "h", "c" oder "hc".
+    Ohne verwertbare Antwort (oder ohne Items) "": gilt als sichtbar."""
+    items = (appearance or {}).get("items") if isinstance(appearance, dict) else None
+    if not isinstance(items, list) or not items:
+        return ""
+    shown = {((e.get("slot") or {}).get("type") or "").upper() for e in items if isinstance(e, dict)}
+    parts = (gear or "").split(";")
+    return "".join(f for st, slot, f in HIDE_SLOTS
+                   if len(parts) >= slot and parts[slot - 1] and st not in shown)
+
+
+def with_flags(gear, flags):
+    """Gear-String auf 19 Slots normieren und Feld 20 setzen (leer = weglassen)."""
+    parts = (gear or "").split(";")[:19]
+    parts += [""] * (19 - len(parts))
+    if flags:
+        parts.append(flags)
+    return ";".join(parts)
+
+
+def appearance_matches(g, ap):
+    """Gehoert die /appearance-Antwort noch zum Grab (Klasse, Rasse)?"""
+    for key, field in (("classId", "playable_class"), ("raceId", "playable_race")):
+        want, got = g.get(key), ((ap or {}).get(field) or {}).get("id")
+        if want and got and int(want) != int(got):
+            return False
+    return True
 
 
 def parse_equipment(js):
@@ -438,6 +478,14 @@ def fetch_gear(graves, api, cache, now, recheck=False, log=print, progress=None,
             st, prof = api.get(base)
             c["sex"] = profile_sex(prof) if st == 200 and not check_identity(g, prof) else None
             time.sleep(0.05)
+        if not rc and c and c.get("gear") and not c.get("app"):
+            # Treffer aus Laeufen vor der Sichtbarkeit: Helm/Umhang einmalig nachholen
+            st, ap = api.get(base + "/appearance")
+            if st == 200 and ap and appearance_matches(g, ap):
+                c["gear"] = with_flags(c["gear"], hidden_flags(c["gear"], ap))
+            if st in (200, 404):
+                c["app"] = 1
+            time.sleep(0.05)
         if not rc and c and (c.get("gear") or (c.get("status") in ("notfound", "mismatch")
                                                and now - c.get("at", 0) < RETRY_NOT_FOUND)):
             stats["cached"] += 1
@@ -463,8 +511,12 @@ def fetch_gear(graves, api, cache, now, recheck=False, log=print, progress=None,
                 seen = int((prof.get("last_login_timestamp") or now * 1000) / 1000)
                 sex = profile_sex(prof)
                 if slots:
-                    cache[key] = {"status": "ok", "gear": encode_gear(slots), "seenAt": seen, "at": now,
-                                  "sex": sex}
+                    gear = encode_gear(slots)
+                    st3, ap = api.get(base + "/appearance")
+                    ok3 = st3 == 200 and appearance_matches(g, ap)
+                    gear = with_flags(gear, hidden_flags(gear, ap if ok3 else None))
+                    cache[key] = {"status": "ok", "gear": gear, "seenAt": seen, "at": now,
+                                  "sex": sex, "app": 1 if st3 in (200, 404) else 0}
                     status = "ok"
                 else:
                     status = "noitems" if st2 == 200 else "notfound"
@@ -511,8 +563,13 @@ def fetch_living(members, api, cache, now, log=print, progress=None, stop=None):
             slots = parse_equipment(eq) if st2 == 200 and eq else {}
             seen = int((prof.get("last_login_timestamp") or now * 1000) / 1000)
             guild = (prof.get("guild") or {}).get("name")
+            gear = ""
+            if slots:
+                gear = encode_gear(slots)
+                st3, ap = api.get(base + "/appearance")
+                gear = with_flags(gear, hidden_flags(gear, ap if st3 == 200 else None))
             cache[key] = {"status": "ok" if slots else "noitems", "at": now, "seenAt": seen,
-                          "gear": encode_gear(slots) if slots else "", "sex": profile_sex(prof),
+                          "gear": gear, "sex": profile_sex(prof),
                           "level": prof.get("level"), "classId": (prof.get("character_class") or {}).get("id"),
                           "raceId": (prof.get("race") or {}).get("id"), "guild": guild}
             status = "ok" if slots else "noitems"

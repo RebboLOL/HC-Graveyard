@@ -36,7 +36,7 @@ if not getattr(sys, "frozen", False):
 import armory_import as armory  # noqa: E402
 
 APP = "Graveyard Armory"
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 TASK = "Graveyard Armory"
 CLIENTS_URL = "https://develop.battle.net/access/clients"
 REGIONS = ("eu", "us", "kr", "tw")

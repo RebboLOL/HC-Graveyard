@@ -12,7 +12,7 @@ This repository hosts the **Graveyard Armory Beacon** (`GraveyardArmory.exe`), a
 
 | | |
 |---|---|
-| **Fallen guildmates** | Looks up every fallen character that has no gear yet and saves the gear it wore (and its gender, which the death log does not record). |
+| **Fallen guildmates** | Looks up every fallen character that has no gear yet and saves the gear it wore (and its gender, which the death log does not record). A helm or cloak the player had hidden stays hidden on the spirit. |
 | **Living guildmates** | Saves the current Armory gear of every guildmate from level 20, at most every three days. Graveyard keeps it as the *guild memory*: should one of them fall later, their grave wears that gear. |
 | **Your guild** | Graveyard reads the result at login and shares it with every guild member who uses Graveyard. **One beacon per guild is enough**, and the guild keeps passing the data on while the beacon is offline. |
 
